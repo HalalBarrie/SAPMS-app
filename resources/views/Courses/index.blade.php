@@ -5,12 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Academic Progress Monitoring System</title>
+    <meta name="description" content="A web application for students to monitor their academic progress by tracking courses, grades, and calculating GPA.">
     @vite('resources/css/app.css')
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     @stack('scripts')
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 min-h-screen" x-data="{ activeTab: 'dashboard', darkMode: true, showHistorical: false, expandedYears: {}, showGPAProjection: false }" x-bind:class="{ 'dark': darkMode }">
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 min-h-screen" x-data x-init="$store.app.init()">
 
     <!-- Header with Navigation -->
     <div class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
@@ -20,11 +21,25 @@
                     📚 SAPMS - Njala University
                 </h1>
                 <div class="flex items-center space-x-4">
-        <button @click="darkMode = !darkMode" 
-                        class="px-3 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm">
-                        <span x-show="!darkMode">🌙</span>
-                        <span x-show="darkMode">☀️</span>
-                    </button>
+        <div x-data="{ open: false }" class="relative">
+                        <button @click="open = !open" class="px-3 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm">
+                            <span x-show="$store.app.theme === 'light'">☀️</span>
+                            <span x-show="$store.app.theme === 'dark'">🌙</span>
+                            <span x-show="$store.app.theme === 'system'">💻</span>
+                        </button>
+                        <div x-show="open" @click.away="open = false"
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="transform opacity-0 scale-95"
+                             x-transition:enter-end="transform opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-75"
+                             x-transition:leave-start="transform opacity-100 scale-100"
+                             x-transition:leave-end="transform opacity-0 scale-95"
+                             class="absolute right-0 mt-2 w-32 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 z-10">
+                            <a href="#" @click.prevent="$store.app.setTheme('light'); open = false" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Light</a>
+                            <a href="#" @click.prevent="$store.app.setTheme('dark'); open = false" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Dark</a>
+                            <a href="#" @click.prevent="$store.app.setTheme('system'); open = false" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">System</a>
+                        </div>
+                    </div>
                     @auth
                         <div class="flex items-center space-x-2">
                             <span class="text-sm text-gray-600 dark:text-gray-400">Welcome, {{ Auth::user()->name }}</span>
@@ -45,28 +60,33 @@
             
             <!-- Navigation Tabs -->
             <div class="flex space-x-1 pb-4">
-                <button @click="activeTab = 'dashboard'" 
-                    :class="activeTab === 'dashboard' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                <button @click="$store.app.activeTab = 'dashboard'" 
+                    :class="$store.app.activeTab === 'dashboard' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
                     class="px-4 py-2 rounded-lg transition-colors text-sm font-medium">
                      Dashboard
                 </button>
-                <button @click="activeTab = 'courses'" 
-                    :class="activeTab === 'courses' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                <button @click="$store.app.activeTab = 'courses'" 
+                    :class="$store.app.activeTab === 'courses' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
                     class="px-4 py-2 rounded-lg transition-colors text-sm font-medium">
                      Courses
                 </button>
-                <button @click="activeTab = 'analytics'" 
-                    :class="activeTab === 'analytics' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                <button @click="$store.app.activeTab = 'analytics'" 
+                    :class="$store.app.activeTab === 'analytics' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
                     class="px-4 py-2 rounded-lg transition-colors text-sm font-medium">
                      Analytics
                 </button>
-                <button @click="activeTab = 'goals'" 
-                    :class="activeTab === 'goals' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                <button @click="$store.app.activeTab = 'projections'" 
+                    :class="$store.app.activeTab === 'projections' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                    class="px-4 py-2 rounded-lg transition-colors text-sm font-medium">
+                     Projections
+                </button>
+                <button @click="$store.app.activeTab = 'goals'" 
+                    :class="$store.app.activeTab === 'goals' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
                     class="px-4 py-2 rounded-lg transition-colors text-sm font-medium">
                      Goals
                 </button>
-                <button @click="activeTab = 'settings'" 
-                    :class="activeTab === 'settings' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                <button @click="$store.app.activeTab = 'settings'" 
+                    :class="$store.app.activeTab === 'settings' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
                     class="px-4 py-2 rounded-lg transition-colors text-sm font-medium">
                     Settings
         </button>
@@ -77,230 +97,105 @@
     <div class="container mx-auto px-6 py-8 space-y-8">
         <!-- Debug Info -->
         <div class="text-sm text-gray-500 mb-4">
-            Active Tab: <span x-text="activeTab"></span> | 
-            Dark Mode: <span x-text="darkMode"></span> | 
-            Show Historical: <span x-text="showHistorical"></span> |
+            Active Tab: <span x-text="$store.app.activeTab"></span> | 
+            Theme: <span x-text="$store.app.theme"></span> | 
+            Show Historical: <span x-text="$store.app.showHistorical"></span> |
             Courses Count: {{ $groupedCourses->count() }}
         </div>
 
         <!-- Dashboard Tab -->
-        @include('Courses.tabs.dashboard')
-
-        <!-- Courses Tab -->
-        <div x-show="activeTab === 'courses'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform scale-95" x-transition:enter-end="opacity-100 transform scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 transform scale-100" x-transition:leave-end="opacity-0 transform scale-95">
-            <!-- Test Content -->
-            <div class="bg-blue-500 text-white p-4 rounded-lg mb-4">
-                <h3>🎯 COURSES TAB IS WORKING!</h3>
-                <p>If you can see this blue box, the Courses tab is functioning correctly.</p>
-            </div>
-            <!-- Add Course Form Card - Magic Bento Style -->
-            <div class="bento-section mb-8">
-                <div class="bento-grid">
-                    <div class="bento-card text-white" style="grid-column: span 4;">
-                        <div class="flex flex-col justify-between h-full">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm text-purple-300">Course Management</span>
-                                <span class="text-2xl">📝</span>
-                            </div>
-                            <div>
-                                <h2 class="text-xl font-bold mb-6 text-center text-white">Add New Course</h2>
-                                <form method="POST" action="{{ route('courses.store') }}" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                @csrf
-                <input type="text" name="course_name" placeholder="Course Name" required
-                                        class="p-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-gray-300 w-full focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 transition-all">
-
-                <input type="text" name="course_code" placeholder="Course Code" required
-                                        class="p-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-gray-300 w-full focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 transition-all">
-
-                                    <select name="grade" required class="p-3 rounded-lg bg-white/20 border border-white/30 text-white w-full focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 transition-all">
-                    <option value="">Select Grade</option>
-                                        <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option>
-                </select>
-
-                                    <select name="credit_hours" required class="p-3 rounded-lg bg-white/20 border border-white/30 text-white w-full focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 transition-all">
-                                        <option value="">Credit Hours</option>
-                                        <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
-                </select>
-
-                                    <select name="semester" required class="p-3 rounded-lg bg-white/20 border border-white/30 text-white w-full focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 transition-all">
-                                        <option value="1">1st Semester </option>
-                                        <option value="2">2nd Semester </option>
-                </select>
-
-                                    <select name="academic_year" required class="p-3 rounded-lg bg-white/20 border border-white/30 text-white w-full focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 transition-all">
-                    @for ($year = date('Y'); $year >= date('Y') - 10; $year--)
-                        <option value="{{ $year }}/{{ $year+1 }}">{{ $year }}/{{ $year+1 }}</option>
-                    @endfor
-                </select>
-
-                <button type="submit" 
-                                        class="col-span-full mt-4 py-3 px-6 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-semibold shadow-md hover:shadow-lg transition-all">
-                                        Add Course
-                </button>
-            </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Course List with Collapsible Sections -->
-            <div class="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">📋 Course Records</h2>
-                    <button @click="showHistorical = !showHistorical" 
-                        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors">
-                        <span x-show="!showHistorical">📚 Show Historical</span>
-                        <span x-show="showHistorical">📖 Current Year Only</span>
-                    </button>
-                </div>
-
-                @if($groupedCourses->isEmpty())
-                    <div class="text-center py-12">
-                        <div class="text-6xl mb-4">📚</div>
-                        <h3 class="text-xl font-semibold mb-2 text-gray-800 dark:text-gray-200">No courses yet</h3>
-                        <p class="text-gray-600 dark:text-gray-400">Add your first course to get started!</p>
-                        <p class="text-sm text-gray-500 mt-2">Debug: Grouped courses count: {{ $groupedCourses->count() }}</p>
-                    </div>
-                @else
-                    <div class="text-sm text-gray-500 mb-4">Debug: Found {{ $groupedCourses->count() }} academic years</div>
-                    <div class="animated-list-container">
-                        <div class="animated-list-wrapper">
-                            <div class="animated-list-scroll" id="courseListScroll">
-                                @foreach($groupedCourses as $academicYear => $semesters)
-                                    @php
-                                        $isCurrentYear = $academicYear === $currentYear;
-                                    @endphp
-                                    
-                                    <div x-show="showHistorical || {{ $isCurrentYear ? 'true' : 'false' }}" 
-                                         x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform scale-95" x-transition:enter-end="opacity-100 transform scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 transform scale-100" x-transition:leave-end="opacity-0 transform scale-95"
-                                         class="animated-list-item" data-index="{{ $loop->index }}">
-                                        <div class="course-year-card">
-                                            <div class="course-year-header" 
-                                                 @click="expandedYears.has('{{ $academicYear }}') ? expandedYears.delete('{{ $academicYear }}') : expandedYears.add('{{ $academicYear }}')">
-                                                <div class="flex justify-between items-center">
-                                                    <div class="flex items-center space-x-3">
-                                                        <h3 class="text-lg font-bold text-white">
-                                                            {{ $academicYear }} Academic Year
-                                                        </h3>
-                                                        @if($isCurrentYear)
-                                                            <span class="px-2 py-1 bg-indigo-600 text-white rounded-full text-xs font-medium">
-                                                                Current
-                                                            </span>
-                                                        @endif
-                                                    </div>
-                                                    <div class="flex items-center space-x-3">
-                                                        @php
-                                                            $yearCourses = $semesters->flatten(1);
-                                                            $yearGPA = \App\Helpers\GPAHelper::calculateGPA($yearCourses);
-                                                        @endphp
-                                                        <span class="text-sm font-semibold text-gray-300">
-                                                            GPA: {{ number_format($yearGPA, 2) }}
-                                                        </span>
-                                                        <svg class="w-5 h-5 transform transition-transform duration-300 text-gray-400" 
-                                                             :class="expandedYears.has('{{ $academicYear }}') ? 'rotate-180' : ''"
-                                                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                                        </svg>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div x-show="expandedYears.has('{{ $academicYear }}')" x-transition class="course-semesters-container">
-                                                @foreach([1, 2] as $semester)
-                                                    @php
-                                                        $semesterCourses = $semesters[$semester] ?? collect();
-                                                        $semesterGPA = \App\Helpers\GPAHelper::calculateGPA($semesterCourses);
-                                                    @endphp
-                                                    
-                                                    <div class="semester-section">
-                                                        <div class="semester-header">
-                                                            <h4 class="text-md font-semibold text-gray-300">
-                                                                Semester {{ $semester }}
-                                                            </h4>
-                                                            <div class="flex items-center space-x-3">
-                                                                <span class="text-sm text-gray-400">
-                                                                    {{ $semesterCourses->count() }} courses
-                                                                </span>
-                                                                <span class="px-2 py-1 bg-blue-600 text-white rounded-full text-sm font-medium">
-                                                                    GPA: {{ number_format($semesterGPA, 2) }}
-                                                                                                                        </span>
-                                                    </div>
+        <div x-show="$store.app.activeTab === 'dashboard'" x-cloak>
+            @include('Courses.tabs.dashboard', [
+                'allCourses' => $allCourses,
+                'cumulativeGPA' => $cumulativeGPA,
+                'currentYear' => $currentYear,
+                'currentSemester' => $currentSemester,
+                'currentSemesterGPA' => $currentSemesterGPA,
+                'totalCredits' => $totalCredits,
+                'goals' => $goals
+            ])
         </div>
 
-                                                @if($semesterCourses->isEmpty())
-                                                            <div class="text-center text-gray-400 py-4">
-                                                                No courses in Semester {{ $semester }}
-                                                            </div>
-                                                        @else
-                                                            <div class="course-items-container">
-                                                                @foreach($semesterCourses as $course)
-                                                                    <div class="course-item" data-course-id="{{ $course->id }}">
-                                                                        <div class="course-item-content">
-                                                                            <div class="course-info">
-                                                                                <h5 class="course-name">{{ $course->course_name }}</h5>
-                                                                                <p class="course-code">{{ $course->course_code }}</p>
-                                                                            </div>
-                                                                            <div class="course-details">
-                                                                                @php
-                                                                                    $gradeColors = [
-                                                                                        'A' => 'grade-a',
-                                                                                        'B' => 'grade-b',
-                                                                                        'C' => 'grade-c',
-                                                                                        'D' => 'grade-d',
-                                                                                        'E' => 'grade-e',
-                                                                                        'F' => 'grade-f'
-                                                                                    ];
-                                                                                @endphp
-                                                                                <span class="grade-badge {{ $gradeColors[$course->grade] ?? 'grade-f' }}">
-                                                                                    {{ $course->grade }}
-                                                                                </span>
-                                                                                <span class="credits-badge">{{ $course->credit_hours }} credits</span>
-                                                                            </div>
-                                                                            <div class="course-actions">
-                                                                                <a href="{{ route('courses.edit', $course) }}" 
-                                                                                   class="action-btn edit-btn">Edit</a>
-                                                                                <form action="{{ route('courses.destroy', $course) }}" method="POST" 
-                                                                                      onsubmit="return confirm('Delete this course?')" class="inline">
-                                    @csrf
-                                    @method('DELETE')
-                                                                                    <button class="action-btn delete-btn">Delete</button>
-                                                                                </form>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                @endforeach
-                                                            </div>
-                                                        @endif
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-                            
-                            <!-- Gradient Overlays -->
-                            <div class="gradient-overlay gradient-top" id="gradientTop"></div>
-                            <div class="gradient-overlay gradient-bottom" id="gradientBottom"></div>
-                        </div>
-                    </div>
-                @endif
-            </div>
+        <!-- Courses Tab -->
+        <div x-show="$store.app.activeTab === 'courses'" x-cloak>
+            @include('Courses.tabs.courses', ['allCourses' => $allCourses, 'groupedCourses' => $groupedCourses, 'currentYear' => $currentYear])
         </div>
 
         <!-- Analytics Tab -->
-        @include('Courses.tabs.analytics')
+        <div x-show="$store.app.activeTab === 'analytics'" x-cloak>
+            @include('Courses.tabs.analytics', [
+                'semesters' => $semesterLabels,
+                'gpaTrend' => $semesterGpaValues,
+                'gradeDistribution' => $gradeDistribution
+            ])
+        </div>
+
+        <!-- Projections Tab -->
+        <div x-show="$store.app.activeTab === 'projections'" x-cloak>
+            @include('Courses.tabs.projections', [
+                'cumulativeGPA' => $cumulativeGPA,
+                'totalCredits' => $totalCredits
+            ])
+        </div>
 
         <!-- Goals Tab -->
-        @include('Courses.tabs.goals')
+        <div x-show="$store.app.activeTab === 'goals'" x-cloak>
+            @include('Courses.tabs.goals', ['goals' => $goals, 'semesterGPA' => $currentSemesterGPA, 'cumulativeGPA' => $cumulativeGPA])
+        </div>
 
         <!-- Settings Tab -->
-        @include('Courses.tabs.settings')
+        <div x-show="$store.app.activeTab === 'settings'" x-cloak>
+            @include('Courses.tabs.settings')
+        </div>
 
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('app', {
+                theme: 'system',
+                
+                init() {
+                    this.theme = localStorage.getItem('theme') || 'system';
+                    
+                    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+                        if (this.theme === 'system') {
+                            this.updateThemeClass();
+                        }
+                    });
+
+                    this.updateThemeClass();
+                },
+
+                isDark() {
+                    if (this.theme === 'system') {
+                        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    }
+                    return this.theme === 'dark';
+                },
+
+                updateThemeClass() {
+                    if (this.isDark()) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
+                },
+
+                setTheme(newTheme) {
+                    this.theme = newTheme;
+                    localStorage.setItem('theme', newTheme);
+                    this.updateThemeClass();
+                },
+
+                // Keep existing properties
+                activeTab: 'dashboard',
+                showHistorical: false,
+                expandedYears: {},
+            });
+        });
+    </script>
     <style>
         /* Magic Bento Styles */
         .bento-section {
@@ -910,153 +805,43 @@
             const projectedGrade = document.getElementById('projectedGrade');
             const projectedCredits = document.getElementById('projectedCredits');
             const projectedGPA = document.getElementById('projectedGPA');
-            
+
             function calculateProjectedGPA() {
+                // Ensure all elements are present
+                if (!projectedGrade || !projectedCredits || !projectedGPA) {
+                    return;
+                }
+
                 const grade = parseFloat(projectedGrade.value);
                 const credits = parseFloat(projectedCredits.value);
-                
-                if (grade && credits) {
-                    // Get current total points and credits
-                    const currentGPA = {{ $currentYearGPA['cumulative'] ?? 0 }};
-                    const currentCredits = {{ $groupedCourses->flatten(2)->sum('credit_hours') ?? 0 }};
-                    
+
+                if (grade >= 0 && credits > 0) {
+                    const currentGPA = {{ $cumulativeGPA ?? 0 }};
+                    const currentCredits = {{ $totalCredits ?? 0 }};
+
                     const currentPoints = currentGPA * currentCredits;
                     const newPoints = grade * credits;
                     const totalPoints = currentPoints + newPoints;
                     const totalCredits = currentCredits + credits;
-                    
-                    const projectedGPAValue = totalPoints / totalCredits;
-                    projectedGPA.textContent = projectedGPAValue.toFixed(2);
+
+                    if (totalCredits > 0) {
+                        const projectedGPAValue = totalPoints / totalCredits;
+                        projectedGPA.textContent = projectedGPAValue.toFixed(2);
+                    } else {
+                        projectedGPA.textContent = '0.00';
+                    }
                 } else {
                     projectedGPA.textContent = '--';
                 }
             }
-            
-            projectedGrade.addEventListener('change', calculateProjectedGPA);
-            projectedCredits.addEventListener('change', calculateProjectedGPA);
 
-            // Initialize Charts when Analytics tab is shown
-            const analyticsTab = document.querySelector('[x-show="activeTab === \'analytics\'"]');
-            if (analyticsTab) {
-                const observer = new MutationObserver(function(mutations) {
-                    mutations.forEach(function(mutation) {
-                        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                            const isVisible = analyticsTab.style.display !== 'none';
-                            if (isVisible) {
-                                initializeCharts();
-                            }
-                        }
-                    });
-                });
-                
-                observer.observe(analyticsTab, { attributes: true });
-            }
-
-            function initializeCharts() {
-                // GPA Trend Chart
-                const gpaCtx = document.getElementById('gpaChart');
-                if (gpaCtx && !gpaCtx.chart) {
-                    const gpaData = {
-                        labels: {!! json_encode($groupedCourses->keys()->toArray()) !!},
-                        datasets: [{
-                            label: 'Cumulative GPA',
-                            data: {!! json_encode($groupedCourses->map(function($semesters) {
-                                $yearCourses = $semesters->flatten(1);
-                                return \App\Helpers\GPAHelper::calculateGPA($yearCourses);
-                            })->values()->toArray()) !!},
-                            borderColor: 'rgb(99, 102, 241)',
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }]
-                    };
-
-                    gpaCtx.chart = new Chart(gpaCtx, {
-                        type: 'line',
-                        data: gpaData,
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    display: false
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    max: 5,
-                                    ticks: {
-                                        stepSize: 1
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-
-                // Grade Distribution Chart
-                const gradeCtx = document.getElementById('gradeChart');
-                if (gradeCtx && !gradeCtx.chart) {
-                    @php
-                        $allCourses = $groupedCourses->flatten(2);
-                        $gradeCounts = $allCourses->groupBy('grade')->map->count();
-                        $gradeLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
-                        $gradeData = [];
-                        foreach ($gradeLabels as $grade) {
-                            $gradeData[] = $gradeCounts[$grade] ?? 0;
-                        }
-                    @endphp
-
-                    const gradeData = {
-                        labels: {!! json_encode($gradeLabels) !!},
-                        datasets: [{
-                            data: {!! json_encode($gradeData) !!},
-                            backgroundColor: [
-                                'rgba(34, 197, 94, 0.8)',   // Green for A
-                                'rgba(59, 130, 246, 0.8)',  // Blue for B
-                                'rgba(234, 179, 8, 0.8)',   // Yellow for C
-                                'rgba(249, 115, 22, 0.8)',  // Orange for D
-                                'rgba(239, 68, 68, 0.8)',   // Red for E
-                                'rgba(107, 114, 128, 0.8)'  // Gray for F
-                            ],
-                            borderColor: [
-                                'rgb(34, 197, 94)',
-                                'rgb(59, 130, 246)',
-                                'rgb(234, 179, 8)',
-                                'rgb(249, 115, 22)',
-                                'rgb(239, 68, 68)',
-                                'rgb(107, 114, 128)'
-                            ],
-                            borderWidth: 2
-                        }]
-                    };
-
-                    gradeCtx.chart = new Chart(gradeCtx, {
-                        type: 'doughnut',
-                        data: gradeData,
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom',
-                                    labels: {
-                                        padding: 20,
-                                        usePointStyle: true
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-
-            // Initialize charts immediately if analytics tab is visible
-            if (document.querySelector('[x-show="activeTab === \'analytics\'"]').style.display !== 'none') {
-                initializeCharts();
+            // Only add listeners if the calculator elements are on the page
+            if (projectedGrade && projectedCredits && projectedGPA) {
+                projectedGrade.addEventListener('input', calculateProjectedGPA);
+                projectedCredits.addEventListener('input', calculateProjectedGPA);
             }
         });
     </script>
 </body>
 </html>
+

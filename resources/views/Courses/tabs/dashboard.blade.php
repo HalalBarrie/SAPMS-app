@@ -1,205 +1,142 @@
-{{-- Dashboard Tab Content --}}
-<div x-show="activeTab === 'dashboard'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform scale-95" x-transition:enter-end="opacity-100 transform scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 transform scale-100" x-transition:leave-end="opacity-0 transform scale-95">
-    <!-- Performance Overview Cards - Magic Bento Style -->
-    <div class="bento-section">
-        <div class="bento-grid">
-            <div class="bento-card text-white">
-                <div class="flex flex-col justify-between h-full">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-purple-300">Performance</span>
-                        <span class="text-2xl">📊</span>
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-bold mb-1 text-indigo-400">Current GPA</h3>
-                        <p class="text-4xl font-bold text-white">{{ number_format($currentYearGPA['cumulative'] ?? 0, 2) }}</p>
-                    </div>
-                </div>
-            </div>
+<div>
+    @auth
+        @if($allCourses->isNotEmpty())
+            @php
+                $user = Auth::user();
+                
+                // Determine Current Academic Level
+                $level = "Year/Semester not set in profile";
+                if ($currentYear && $currentSemester) {
+                    // Attempt to determine year number relative to the first course entered.
+                    $firstCourseYear = (int)substr($allCourses->first()->academic_year, 0, 4);
+                    $currentAcademicYearStart = (int)substr($currentYear, 0, 4);
+                    $year = $currentAcademicYearStart - $firstCourseYear + 1;
+                    $level = "Year {$year} - " . ($currentSemester == 1 ? '1st' : '2nd') . " Semester ({$currentYear})";
+                }
 
-            <div class="bento-card text-white">
-                <div class="flex flex-col justify-between h-full">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-purple-300">Courses</span>
-                        <span class="text-2xl">📚</span>
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-bold mb-1 text-green-400">Total Courses</h3>
-                        <p class="text-4xl font-bold text-white">{{ $groupedCourses->flatten(2)->count() }}</p>
-                    </div>
-                </div>
-            </div>
+                // Find Goals
+                $semesterGoal = $goals->firstWhere('type', 'semester');
+                $cumulativeGoal = $goals->firstWhere('type', 'cumulative');
 
-            <div class="bento-card text-white">
-                <div class="flex flex-col justify-between h-full">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-purple-300">Academic</span>
-                        <span class="text-2xl">🎓</span>
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-bold mb-1 text-purple-400">Academic Years</h3>
-                        <p class="text-4xl font-bold text-white">{{ $groupedCourses->count() }}</p>
-                    </div>
-                </div>
-            </div>
+                // Find Highlight Courses for the current semester
+                $currentSemesterCourses = $allCourses->where('academic_year', $currentYear)->where('semester', $currentSemester);
+                $bestCourse = $currentSemesterCourses->sortBy('grade')->first();
+                $worstCourse = $currentSemesterCourses->sortByDesc('grade')->first();
 
-            <div class="bento-card text-white">
-                <div class="flex flex-col justify-between h-full">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-purple-300">Goals</span>
-                        <span class="text-2xl">🎯</span>
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-bold mb-1 text-orange-400">Goal Progress</h3>
-                        <p class="text-4xl font-bold text-white">75%</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+            @endphp
 
-    <!-- Current Year GPA Summary - Magic Bento Style -->
-    @if($currentYear)
-    <div class="bento-section mb-8">
-        <div class="bento-grid">
-            <div class="bento-card text-white" style="grid-column: span 3;">
-                <div class="flex flex-col justify-between h-full">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center">
-                            <span class="text-2xl mr-3">📊</span>
-                            <h2 class="text-xl font-bold text-white">{{ $currentYear }} Academic Year Summary</h2>
-                        </div>
-                        <button @click="showGPAProjection = !showGPAProjection"
-                            class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-sm">
-                            <span x-show="!showGPAProjection">🔮 GPA Projection</span>
-                            <span x-show="showGPAProjection">📊 Hide Projection</span>
-                        </button>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="bg-white/20 rounded-lg p-4">
-                            <div class="flex items-center mb-2">
-                                <span class="text-lg mr-2">📅</span>
-                                <div class="text-sm opacity-90">Semester 1 GPA</div>
-                            </div>
-                            <div class="text-3xl font-bold text-indigo-300">{{ number_format($currentYearGPA['semester1'], 2) }}</div>
-                        </div>
-                        <div class="bg-white/20 rounded-lg p-4">
-                            <div class="flex items-center mb-2">
-                                <span class="text-lg mr-2">📅</span>
-                                <div class="text-sm opacity-90">Semester 2 GPA</div>
-                            </div>
-                            <div class="text-3xl font-bold text-green-300">{{ number_format($currentYearGPA['semester2'], 2) }}</div>
-                        </div>
-                        <div class="bg-white/20 rounded-lg p-4">
-                            <div class="flex items-center mb-2">
-                                <span class="text-lg mr-2">🏆</span>
-                                <div class="text-sm opacity-90">Cumulative GPA</div>
-                            </div>
-                            <div class="text-3xl font-bold text-purple-300">{{ number_format($currentYearGPA['cumulative'], 2) }}</div>
-                        </div>
-                    </div>
-
-    <!-- GPA Projection Tool - Magic Bento Style -->
-    <div x-show="showGPAProjection" x-transition class="mt-6 pt-6 border-t border-white/20">
-        <div class="bento-section">
-            <div class="bento-grid">
-                <div class="bento-card text-white" style="grid-column: span 2;">
-                    <div class="flex flex-col justify-between h-full">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-purple-300">Calculator</span>
-                            <span class="text-2xl">🔮</span>
+            <div class="bento-grid" style="grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+                <!-- Welcome & Level -->
+                <div class="bento-card" style="grid-column: span 4;">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-2xl font-bold text-white">Welcome, {{ $user->name }}</h2>
+                            <p class="text-indigo-300 text-lg">{{ $level }}</p>
                         </div>
                         <div>
-                            <h3 class="text-xl font-semibold mb-4 text-white">GPA Projection Calculator</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-2 text-gray-300">Projected Grade</label>
-                                    <select id="projectedGrade" class="w-full p-3 rounded-lg bg-white/20 border border-white/30 text-white">
-                                        <option value="">Select Grade</option>
-                                        <option value="5">A (5.0)</option>
-                                        <option value="4">B (4.0)</option>
-                                        <option value="3">C (3.0)</option>
-                                        <option value="2">D (2.0)</option>
-                                        <option value="1">E (1.0)</option>
-                                        <option value="0">F (0.0)</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-2 text-gray-300">Credit Hours</label>
-                                    <select id="projectedCredits" class="w-full p-3 rounded-lg bg-white/20 border border-white/30 text-white">
-                                        <option value="">Select Credits</option>
-                                        <option value="2">2 Credits</option>
-                                        <option value="3">3 Credits</option>
-                                        <option value="4">4 Credits</option>
-                                        <option value="5">5 Credits</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="mt-4 p-4 bg-white/10 rounded-lg">
-                                <p class="text-sm text-gray-300">Projected GPA: <span id="projectedGPA" class="font-bold text-white">--</span></p>
-                                <p class="text-xs opacity-75 mt-1 text-gray-400">Based on Njala University grading system</p>
-                            </div>
+                            <a href="{{ route('courses.download.all') }}" class="action-btn bg-purple-600 hover:bg-purple-700 text-white">Download Full Report</a>
                         </div>
                     </div>
                 </div>
+
+                <!-- Core Stats -->
+                <div class="bento-card" style="grid-column: span 1;">
+                    <h3 class="text-sm font-medium text-gray-400">Current Semester GPA</h3>
+                    <p class="mt-1 text-4xl font-semibold text-white">{{ number_format($currentSemesterGPA, 2) }}</p>
+                </div>
+                <div class="bento-card" style="grid-column: span 1;">
+                    <h3 class="text-sm font-medium text-gray-400">Cumulative GPA</h3>
+                    <p class="mt-1 text-4xl font-semibold text-white">{{ number_format($cumulativeGPA, 2) }}</p>
+                </div>
+                <div class="bento-card" style="grid-column: span 1;">
+                    <h3 class="text-sm font-medium text-gray-400">Total Credits</h3>
+                    <p class="mt-1 text-4xl font-semibold text-white">{{ $totalCredits }}</p>
+                </div>
+                <div class="bento-card" style="grid-column: span 1;">
+                    <h3 class="text-sm font-medium text-gray-400">Courses Logged</h3>
+                    <p class="mt-1 text-4xl font-semibold text-white">{{ $allCourses->count() }}</p>
+                </div>
+
+                <!-- Goal Progress -->
+                <div class="bento-card" style="grid-column: span 2; grid-row: span 2;">
+                    <h3 class="text-lg font-bold text-white mb-4">Goal Progress</h3>
+                    <div class="space-y-6 flex flex-col justify-center h-full">
+                        @if($semesterGoal)
+                            @php $semesterProgress = ($semesterGoal->target_gpa > 0) ? ($currentSemesterGPA / $semesterGoal->target_gpa) * 100 : 0; @endphp
+                            <div>
+                                <div class="flex justify-between items-end mb-1">
+                                    <span class="text-gray-300">Semester Goal</span>
+                                    <span class="text-indigo-300 font-bold">{{ number_format($currentSemesterGPA, 2) }} / {{ number_format($semesterGoal->target_gpa, 2) }}</span>
+                                </div>
+                                <div class="w-full bg-gray-700 rounded-full h-2.5">
+                                    <div class="bg-indigo-500 h-2.5 rounded-full" style="width: {{ min($semesterProgress, 100) }}%"></div>
+                                </div>
+                            </div>
+                        @endif
+                        @if($cumulativeGoal)
+                             @php $cumulativeProgress = ($cumulativeGoal->target_gpa > 0 && is_numeric($cumulativeGPA)) ? ($cumulativeGPA / $cumulativeGoal->target_gpa) * 100 : 0; @endphp
+                            <div>
+                                <div class="flex justify-between items-end mb-1">
+                                    <span class="text-gray-300">Cumulative Goal</span>
+                                    <span class="text-green-300 font-bold">{{ is_numeric($cumulativeGPA) ? number_format($cumulativeGPA, 2) : '0.00' }} / {{ number_format($cumulativeGoal->target_gpa, 2) }}</span>
+                                </div>
+                                <div class="w-full bg-gray-700 rounded-full h-2.5">
+                                    <div class="bg-green-500 h-2.5 rounded-full" style="width: {{ min($cumulativeProgress, 100) }}%"></div>
+                                </div>
+                            </div>
+                        @endif
+                        @if(!$semesterGoal && !$cumulativeGoal)
+                            <div class="text-center">
+                                <p class="text-gray-400">No goals set yet.</p>
+                                <button @click="$store.app.activeTab = 'goals'" class="mt-2 text-indigo-400 hover:text-indigo-300 font-semibold">+ Set a New Goal</button>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Highlights -->
+                <div class="bento-card" style="grid-column: span 2;">
+                    <h3 class="text-lg font-bold text-white mb-4">Current Semester Highlights</h3>
+                    <div class="space-y-4">
+                        @if($bestCourse)
+                            <div class="p-4 bg-gray-900/50 rounded-lg">
+                                <p class="text-sm text-green-300">Top Course</p>
+                                <p class="text-lg font-semibold text-white">{{ $bestCourse->name }}</p>
+                                <p class="text-xl font-bold text-green-400">Grade: {{ $bestCourse->grade }}</p>
+                            </div>
+                        @endif
+                        @if($worstCourse && $bestCourse->id !== $worstCourse->id)
+                            <div class="p-4 bg-gray-900/50 rounded-lg">
+                                <p class="text-sm text-red-300">Most Challenging</p>
+                                <p class="text-lg font-semibold text-white">{{ $worstCourse->name }}</p>
+                                <p class="text-xl font-bold text-red-400">Grade: {{ $worstCourse->grade }}</p>
+                            </div>
+                        @endif
+                         @if(!$bestCourse)
+                            <p class="text-center text-gray-400 pt-8">No courses logged for this semester yet.</p>
+                        @endif
+                    </div>
+                </div>
             </div>
+
+        @else
+            <div class="text-center py-12 bg-gray-800 shadow-lg rounded-xl border border-gray-700">
+                <div class="text-6xl mb-4">👋</div>
+                <h3 class="text-2xl font-semibold mb-2 text-white">Welcome, {{ Auth::user()->name }}!</h3>
+                <p class="text-gray-400">Your dashboard is ready. Add your first course to see your academic progress.</p>
+                <button @click="$store.app.activeTab = 'courses'" class="mt-8 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    + Add Your First Course
+                </button>
+            </div>
+        @endif
+    @else
+        <div class="text-center py-12 bg-gray-800 shadow-lg rounded-xl border border-gray-700">
+            <div class="text-6xl mb-4">📚</div>
+            <h3 class="text-2xl font-semibold mb-2 text-white">Welcome to SAPMS</h3>
+            <p class="text-gray-400">Log in to manage your courses and track your academic progress.</p>
+            <a href="{{ route('login') }}" class="mt-8 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Login to Get Started
+            </a>
         </div>
-    </div>
-    @endif
-
-    <!-- Quick Actions - Magic Bento Style -->
-    <div class="bento-section">
-        <div class="bento-grid">
-            <div class="bento-card text-white cursor-pointer" @click="activeTab = 'courses'">
-                <div class="flex flex-col justify-between h-full">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-purple-300">Quick Action</span>
-                        <span class="text-2xl">➕</span>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-semibold mb-2">Add New Course</h3>
-                        <p class="text-sm text-gray-300 opacity-90">Record new course grades and track your progress</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bento-card text-white cursor-pointer" @click="activeTab = 'analytics'">
-                <div class="flex flex-col justify-between h-full">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-purple-300">Analytics</span>
-                        <span class="text-2xl">📈</span>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-semibold mb-2">View Analytics</h3>
-                        <p class="text-sm text-gray-300 opacity-90">Check performance trends and insights</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bento-card text-white cursor-pointer" @click="activeTab = 'goals'">
-                <div class="flex flex-col justify-between h-full">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-purple-300">Goals</span>
-                        <span class="text-2xl">🎯</span>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-semibold mb-2">Set Goals</h3>
-                        <p class="text-sm text-gray-300 opacity-90">Track academic targets and milestones</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bento-card text-white cursor-pointer" @click="activeTab = 'settings'">
-                <div class="flex flex-col justify-between h-full">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-purple-300">Settings</span>
-                        <span class="text-2xl">⚙️</span>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-semibold mb-2">Preferences</h3>
-                        <p class="text-sm text-gray-300 opacity-90">Customize your experience</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    @endauth
 </div>

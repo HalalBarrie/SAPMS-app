@@ -1,71 +1,53 @@
-{{-- Settings Tab Content --}}
-<div x-show="activeTab === 'settings'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform scale-95" x-transition:enter-end="opacity-100 transform scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 transform scale-100" x-transition:leave-end="opacity-0 transform scale-95">
-    <!-- Test Content -->
-    <div class="bg-purple-500 text-white p-4 rounded-lg mb-4">
-        <h3>⚙️ SETTINGS TAB IS WORKING!</h3>
-        <p>If you can see this purple box, the Settings tab is functioning correctly.</p>
-    </div>
-    <div class="bento-section">
-        <div class="bento-grid">
-            <div class="bento-card text-white" style="grid-column: span 2;">
-                <div class="flex flex-col justify-between h-full">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-purple-300">Profile</span>
-                        <span class="text-2xl">👤</span>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold mb-6 text-white">Settings & Profile</h2>
-                        <form class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium mb-2 text-gray-300">Full Name</label>
-                                <input type="text" value="{{ Auth::user()->name ?? '' }}" class="w-full p-3 rounded-lg bg-white/20 border border-white/30 text-white">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-2 text-gray-300">Email</label>
-                                <input type="email" value="{{ Auth::user()->email ?? '' }}" class="w-full p-3 rounded-lg bg-white/20 border border-white/30 text-white">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-2 text-gray-300">Student ID</label>
-                                <input type="text" placeholder="Enter your student ID" class="w-full p-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-gray-300">
-                            </div>
-                            <button type="submit" class="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
-                                Update Profile
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
+<div>
+    <div class="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+        <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200 mb-6">⚙️ Settings</h2>
 
-            <div class="bento-card text-white" style="grid-column: span 2;">
-                <div class="flex flex-col justify-between h-full">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-purple-300">Preferences</span>
-                        <span class="text-2xl">⚙️</span>
+        <!-- Current Academic Year/Semester -->
+        <div class="mb-8">
+            <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-4">Academic Details</h3>
+            <form action="{{ route('profile.updateAcademicDetails') }}" method="POST">
+                @csrf
+                @method('PATCH')
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl">
+                    <div>
+                        <label for="academic_year" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Current Academic Year</label>
+                        <select id="academic_year" name="current_academic_year" class="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100">
+                            <option value="">Select Year</option>
+                            @for ($year = date('Y'); $year >= date('Y') - 10; $year--)
+                                <option value="{{ $year }}/{{ $year+1 }}" {{ (Auth::user()->current_academic_year ?? '') == ($year . '/' . ($year+1)) ? 'selected' : '' }}>
+                                    {{ $year }}/{{ $year+1 }}
+                                </option>
+                            @endfor
+                        </select>
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold mb-4 text-white">Preferences</h3>
-                        <div class="space-y-4">
-                            <div class="flex items-center justify-between">
-                                <span class="text-gray-300">Dark Mode</span>
-                                <button @click="darkMode = !darkMode"
-                                    :class="darkMode ? 'bg-purple-600' : 'bg-gray-600'"
-                                    class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors">
-                                    <span :class="darkMode ? 'translate-x-6' : 'translate-x-1'"
-                                          class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"></span>
-                                </button>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-gray-300">Email Notifications</span>
-                                <input type="checkbox" checked class="rounded border-gray-300 text-purple-600 focus:ring-purple-500">
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-gray-300">Goal Reminders</span>
-                                <input type="checkbox" checked class="rounded border-gray-300 text-purple-600 focus:ring-purple-500">
-                            </div>
-                        </div>
+                        <label for="semester" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Current Semester</label>
+                        <select id="semester" name="current_semester" class="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100">
+                            <option value="">Select Semester</option>
+                            <option value="1" {{ (Auth::user()->current_semester ?? '') == 1 ? 'selected' : '' }}>1st Semester</option>
+                            <option value="2" {{ (Auth::user()->current_semester ?? '') == 2 ? 'selected' : '' }}>2nd Semester</option>
+                        </select>
                     </div>
                 </div>
-            </div>
+
+                <div class="mt-6">
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors">
+                        Save Academic Details
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Profile Information -->
+        <div>
+            <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-4">Profile Management</h3>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">
+                Update your account's profile information, change your password, or delete your account.
+            </p>
+            <a href="{{ route('profile.edit') }}" class="inline-block px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors">
+                Go to Profile Page
+            </a>
         </div>
     </div>
 </div>

@@ -18,6 +18,11 @@ class User extends Authenticatable
 }
 
 
+    public function goals()
+    {
+        return $this->hasMany(Goal::class);
+    }
+
     /**
      * The attributes that are mass assignable.
      *
@@ -27,6 +32,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'current_academic_year',
+        'current_semester',
     ];
 
     /**

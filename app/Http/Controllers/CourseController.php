@@ -6,72 +6,91 @@ use App\Models\Course;
 use Illuminate\Http\Request;
 use App\Helpers\GPAHelper;
 use Illuminate\Support\Facades\Auth;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class CourseController extends Controller
 {
     public function index(Request $request)
     {
-        // Data for authenticated users
-        if (Auth::check()) {
-            $courses = Course::where('user_id', Auth::id())
-                ->orderBy('academic_year', 'asc')
-                ->orderBy('semester', 'asc')
-                ->get();
-
-            // Analytics & Projection Data
-            $semesters = [];
-            $gpaTrend = [];
-            $gradeDistribution = collect(['A' => 0, 'B' => 0, 'C' => 0, 'D' => 0, 'E' => 0, 'F' => 0]);
-            $cumulativeGPA = 0;
-            $totalCredits = 0;
-
-            if ($courses->isNotEmpty()) {
-                // GPA Trend and Semester Labels
-                $coursesBySemester = $courses->groupBy(fn($course) => $course->academic_year . '_' . $course->semester);
-
-                foreach ($coursesBySemester as $key => $semesterCourses) {
-                    [$year, $sem] = explode('_', $key);
-                    $semesters[] = str_replace('/', '-', $year) . " (Sem {$sem})";
-                    $gpaTrend[] = GPAHelper::calculateGPA($semesterCourses);
-                }
-
-                // Grade Distribution
-                $gradeDistribution = $gradeDistribution->merge($courses->groupBy('grade')->map->count());
-
-                // For Projection Calculator
-                $totalCredits = $courses->sum('credit_hours');
-                $cumulativeGPA = GPAHelper::calculateGPA($courses);
-            }
-
-            // Group courses for display (most recent year first)
-            $groupedCourses = $courses->groupBy('academic_year')->map(fn($year) => $year->groupBy('semester'))->reverse();
-
-            // Current Year Details
-            $currentYear = $courses->last()->academic_year ?? null;
-            $currentYearCourses = $groupedCourses[$currentYear] ?? collect();
-            $currentYearGPA = [
-                'semester1' => GPAHelper::calculateGPA($currentYearCourses[1] ?? collect()),
-                'semester2' => GPAHelper::calculateGPA($currentYearCourses[2] ?? collect()),
-                'cumulative' => GPAHelper::calculateGPA($currentYearCourses->flatten(1))
-            ];
-
-        } else {
-            // Empty state for unauthenticated users
-            $groupedCourses = collect();
-            $currentYearGPA = ['semester1' => 0.00, 'semester2' => 0.00, 'cumulative' => 0.00];
-            $currentYear = null;
-            $semesters = [];
-            $gpaTrend = [];
-            $gradeDistribution = collect(['A' => 0, 'B' => 0, 'C' => 0, 'D' => 0, 'E' => 0, 'F' => 0]);
-            $cumulativeGPA = 0;
-            $totalCredits = 0;
+        // --- GUEST USERS ---
+        if (Auth::guest()) {
+            return view('courses.index', [
+                'allCourses' => collect(),
+                'groupedCourses' => collect(),
+                'currentSemesterGPA' => 0.00,
+                'cumulativeGPA' => 0.00,
+                'gradeDistribution' => collect(),
+                'goals' => collect(),
+                'currentYear' => date('Y'),
+                'currentSemester' => 1,
+                'totalCredits' => 0,
+                'semesterLabels' => [],
+                'semesterGpaValues' => [],
+            ]);
         }
 
-        return view('courses.index', compact(
-            'groupedCourses', 'currentYearGPA', 'currentYear',
-            'semesters', 'gpaTrend', 'gradeDistribution',
-            'cumulativeGPA', 'totalCredits'
-        ));
+        // --- AUTHENTICATED USERS ---
+        $user = Auth::user();
+
+        // 1. FETCH CORE DATA
+        $allCourses = $user->courses()->orderBy('academic_year', 'asc')->orderBy('semester', 'asc')->get();
+        $activeGoals = $user->goals()->where('status', 'active')->get();
+
+        // 2. INITIALIZE ALL VARIABLES
+        $currentSemesterGPA = 0.00;
+        $cumulativeGPA = 0.00;
+        $gradeDistribution = collect();
+        $totalCredits = 0;
+        $semesterLabels = [];
+        $semesterGpaValues = [];
+        $currentAcademicYear = $user->current_academic_year;
+        $currentSemester = $user->current_semester;
+
+        // 3. PERFORM CALCULATIONS (only if courses exist)
+        if ($allCourses->isNotEmpty()) {
+            $totalCredits = $allCourses->sum('credit_hours');
+            $cumulativeGPA = GPAHelper::calculateGPA($allCourses);
+            $gradeDistribution = $allCourses->groupBy('grade')->map->count();
+            
+            $coursesBySemester = $allCourses->groupBy(fn($c) => $c->academic_year . '-S' . $c->semester);
+
+            $sortedSemesters = $coursesBySemester->sortKeys();
+            foreach ($sortedSemesters as $key => $coursesInSemester) {
+                $semesterLabels[] = $key;
+                $semesterGpaValues[] = GPAHelper::calculateGPA($coursesInSemester);
+            }
+
+            if (!$currentAcademicYear || !$currentSemester) {
+                $latestCourse = $allCourses->last();
+                $currentAcademicYear = $latestCourse->academic_year;
+                $currentSemester = $latestCourse->semester;
+            }
+            $currentSemesterKey = $currentAcademicYear . '-S' . $currentSemester;
+            if(isset($coursesBySemester[$currentSemesterKey])) {
+                $currentSemesterGPA = GPAHelper::calculateGPA($coursesBySemester[$currentSemesterKey]);
+            }
+        }
+
+        // This is for the Courses tab display logic
+        $groupedCourses = $allCourses->groupBy('academic_year')->map(fn($year) => $year->groupBy('semester'));
+
+        // 4. PREPARE VIEW DATA
+        $viewData = [
+            'allCourses' => $allCourses,
+            'groupedCourses' => $groupedCourses,
+            'currentSemesterGPA' => $currentSemesterGPA,
+            'cumulativeGPA' => $cumulativeGPA,
+            'gradeDistribution' => $gradeDistribution,
+            'goals' => $activeGoals,
+            'currentYear' => $currentAcademicYear,
+            'currentSemester' => $currentSemester,
+            'totalCredits' => $totalCredits,
+            'semesterLabels' => $semesterLabels,
+            'semesterGpaValues' => $semesterGpaValues,
+        ];
+
+        // 5. RETURN VIEW
+        return view('courses.index', $viewData);
     }
 
     public function create()
@@ -153,5 +172,65 @@ class CourseController extends Controller
         $course->delete();
 
         return redirect()->route('courses.index')->with('success', 'Course deleted successfully.');
+    }
+
+    public function downloadPDF($academic_year, $semester)
+    {
+        $user = Auth::user();
+        $coursesQuery = $user->courses()->where('academic_year', $academic_year);
+
+        if ($semester !== 'all') {
+            $coursesQuery->where('semester', $semester);
+        }
+
+        $courses = $coursesQuery->orderBy('semester', 'asc')->get();
+
+        if ($courses->isEmpty()) {
+            return back()->with('error', 'No courses found to generate PDF.');
+        }
+
+        // Calculate GPA for the selection
+        $gpa = GPAHelper::calculateGPA($courses);
+
+        $data = [
+            'courses' => $courses,
+            'academic_year' => $academic_year,
+            'semester' => $semester,
+            'user' => $user,
+            'gpa' => $gpa,
+            'date' => date('Y-m-d')
+        ];
+
+        $pdf = Pdf::loadView('pdf.courses', $data);
+
+        $filename = 'courses-' . str_replace('/', '-', $academic_year) . '-' . $semester . '.pdf';
+        return $pdf->download($filename);
+    }
+
+    public function downloadAllPDF()
+    {
+        $user = Auth::user();
+        $courses = $user->courses()->orderBy('academic_year', 'asc')->orderBy('semester', 'asc')->get();
+
+        if ($courses->isEmpty()) {
+            return back()->with('error', 'No courses found to generate PDF.');
+        }
+
+        // Calculate GPA for all courses
+        $gpa = GPAHelper::calculateGPA($courses);
+
+        $data = [
+            'courses' => $courses,
+            'academic_year' => 'All Years',
+            'semester' => 'all',
+            'user' => $user,
+            'gpa' => $gpa,
+            'date' => date('Y-m-d')
+        ];
+
+        $pdf = Pdf::loadView('pdf.courses', $data);
+
+        $filename = 'courses-all-time.pdf';
+        return $pdf->download($filename);
     }
 }
