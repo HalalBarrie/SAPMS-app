@@ -11,57 +11,67 @@ class CourseController extends Controller
 {
     public function index(Request $request)
     {
-        // Check if user is authenticated
+        // Data for authenticated users
         if (Auth::check()) {
-            // Get all courses for logged-in user ordered by year then semester
             $courses = Course::where('user_id', Auth::id())
-                ->orderBy('academic_year', 'desc') // Most recent first
+                ->orderBy('academic_year', 'asc')
                 ->orderBy('semester', 'asc')
                 ->get();
 
-            // If no courses yet
-            if ($courses->isEmpty()) {
-                $groupedCourses = collect();
-                $currentYearGPA = [
-                    'semester1' => 0.00,
-                    'semester2' => 0.00,
-                    'cumulative' => 0.00
-                ];
-                $currentYear = null;
-            } else {
-                // Group courses by academic year and semester
-                $groupedCourses = $courses->groupBy('academic_year')->map(function ($yearCourses) {
-                    return $yearCourses->groupBy('semester');
-                });
+            // Analytics & Projection Data
+            $semesters = [];
+            $gpaTrend = [];
+            $gradeDistribution = collect(['A' => 0, 'B' => 0, 'C' => 0, 'D' => 0, 'E' => 0, 'F' => 0]);
+            $cumulativeGPA = 0;
+            $totalCredits = 0;
 
-                // Get current year (most recent)
-                $currentYear = $courses->first()->academic_year;
-                $currentYearCourses = $groupedCourses[$currentYear] ?? collect();
+            if ($courses->isNotEmpty()) {
+                // GPA Trend and Semester Labels
+                $coursesBySemester = $courses->groupBy(fn($course) => $course->academic_year . '_' . $course->semester);
 
-                // Calculate current year GPAs
-                $semester1Courses = $currentYearCourses[1] ?? collect();
-                $semester2Courses = $currentYearCourses[2] ?? collect();
-                $allCurrentYearCourses = $currentYearCourses->flatten(1);
+                foreach ($coursesBySemester as $key => $semesterCourses) {
+                    [$year, $sem] = explode('_', $key);
+                    $semesters[] = str_replace('/', '-', $year) . " (Sem {$sem})";
+                    $gpaTrend[] = GPAHelper::calculateGPA($semesterCourses);
+                }
 
-                $currentYearGPA = [
-                    'semester1' => GPAHelper::calculateGPA($semester1Courses),
-                    'semester2' => GPAHelper::calculateGPA($semester2Courses),
-                    'cumulative' => GPAHelper::calculateGPA($allCurrentYearCourses)
-                ];
+                // Grade Distribution
+                $gradeDistribution = $gradeDistribution->merge($courses->groupBy('grade')->map->count());
+
+                // For Projection Calculator
+                $totalCredits = $courses->sum('credit_hours');
+                $cumulativeGPA = GPAHelper::calculateGPA($courses);
             }
-        } else {
-            // For unauthenticated users, show empty state
-            $courses = collect();
-            $groupedCourses = collect();
+
+            // Group courses for display (most recent year first)
+            $groupedCourses = $courses->groupBy('academic_year')->map(fn($year) => $year->groupBy('semester'))->reverse();
+
+            // Current Year Details
+            $currentYear = $courses->last()->academic_year ?? null;
+            $currentYearCourses = $groupedCourses[$currentYear] ?? collect();
             $currentYearGPA = [
-                'semester1' => 0.00,
-                'semester2' => 0.00,
-                'cumulative' => 0.00
+                'semester1' => GPAHelper::calculateGPA($currentYearCourses[1] ?? collect()),
+                'semester2' => GPAHelper::calculateGPA($currentYearCourses[2] ?? collect()),
+                'cumulative' => GPAHelper::calculateGPA($currentYearCourses->flatten(1))
             ];
+
+        } else {
+            // Empty state for unauthenticated users
+            $groupedCourses = collect();
+            $currentYearGPA = ['semester1' => 0.00, 'semester2' => 0.00, 'cumulative' => 0.00];
             $currentYear = null;
+            $semesters = [];
+            $gpaTrend = [];
+            $gradeDistribution = collect(['A' => 0, 'B' => 0, 'C' => 0, 'D' => 0, 'E' => 0, 'F' => 0]);
+            $cumulativeGPA = 0;
+            $totalCredits = 0;
         }
 
-        return view('courses.index', compact('groupedCourses', 'currentYearGPA', 'currentYear'));
+        return view('courses.index', compact(
+            'groupedCourses', 'currentYearGPA', 'currentYear',
+            'semesters', 'gpaTrend', 'gradeDistribution',
+            'cumulativeGPA', 'totalCredits'
+        ));
     }
 
     public function create()
